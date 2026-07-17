@@ -1,0 +1,179 @@
+================================================================================
+MULTI-MODAL STOCK PREDICTOR
+Comprehensive Engineering & Technical Specification Document
+================================================================================
+
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+The Multi-Modal Stock Predictor is an advanced, full-stack quantitative analytics 
+platform. It aggregates historical market data with real-time sentiment analysis 
+derived from natural language processing (NLP). The system subsequently employs 
+deep learning (LSTM) and ensemble machine learning (Random Forest) models to 
+generate a median forward-looking price trajectory. Concurrently, it applies 
+stochastic volatility modeling via GARCH(1,1) nested within a Monte Carlo 
+simulation engine to construct strict 5th and 95th percentile confidence envelopes.
+
+This document serves as the excruciatingly detailed technical specification for 
+every layer of the application architecture.
+
+================================================================================
+2. COMPONENT-LEVEL ARCHITECTURE & MATHEMATICAL RIGOR
+================================================================================
+
+A. BACKEND GATEWAY LAYER (`backend/main.py`)
+--------------------------------------------------------------------------------
+Functionality: 
+The API Gateway is constructed using FastAPI and served via asynchronous Uvicorn 
+ASGI web servers. It is the core orchestration layer handling client-server data 
+contracts.
+
+Technical Specifications:
+- CORS Middleware: Explicitly defined to allow global origins (`["*"]`), supporting 
+  decoupled frontend hosting topologies (e.g., Vercel, Netlify).
+- Pydantic Ingestion Schemas: 
+  `PredictionRequest`: 
+    - `ticker` (String): Normalized to uppercase. Validates market identifiers.
+    - `company_name` (String): Sanitized input used for Google RSS text matching.
+    - `horizon` (Integer): Strictly constrained via `Field(ge=1, le=120)` to prevent 
+      memory exhaustion during recursive recursive forecasting loops.
+- Error Handling: Wraps the entire orchestration pipeline in a `try-except` net, 
+  catching upstream API failures (Yahoo Finance 404s, RSS timeouts) and structural 
+  matrix dimension errors, throwing a graceful `HTTPException(500)`.
+
+B. DATA PIPELINE & SENTIMENT ENGINE (`backend/data_pipeline.py`)
+--------------------------------------------------------------------------------
+Functionality: 
+Handles Extraction, Transformation, and Loading (ETL). Fetches raw spot prices and 
+unstructured textual data, transforming them into a unified, timezone-aligned 
+pandas DataFrame.
+
+Technical Specifications:
+- Market Ingestion (`fetch_market_data`): 
+  - Engine: `yfinance`.
+  - Scrubbing: Implements deterministic removal of `np.inf` and `np.nan` values. 
+  - Alignment: Strips timezone payloads and collapses index objects to tz-naive 
+    trading dates.
+- Textual Extraction (`fetch_and_score_raw_sentiment`):
+  - Ingests unstructured RSS XML via `feedparser` querying Google News.
+  - Generates proxy social streams via randomized timestamp generation representing 
+    Reddit and Twitter retail trader volume.
+- NLP Sentiment Scoring (NLTK VADER):
+  - Custom Lexicon Weights: Injects domain-specific semantic rules (e.g., 'bearish': -1.5, 
+    'bullish': 1.5, 'squeeze': 1.5, 'plummet': -2.5) to override standard VADER logic 
+    which struggles with financial slang.
+- Temporal Alignment via VWDV (`aggregate_sentiment_to_calendar`):
+  - Solves the mismatch between continuous 24/7 news cycles and discrete trading days.
+  - Decay Formula: $W = w_i \cdot \ln(1 + E) \cdot e^{-\lambda \Delta t}$
+  - Implements an exponential decay ($\lambda=0.05$) based on the $\Delta t$ hours 
+    prior to the 16:00 EST market close cutoff window to heavily weight breaking news 
+    while dampening older articles.
+
+C. QUANTITATIVE MATHEMATICS & STOCHASTICS (`backend/quantitative.py`)
+--------------------------------------------------------------------------------
+Functionality: 
+Executes deterministic mathematical transformations on the raw spot prices to generate 
+stationary vectors and probabilistic boundaries.
+
+Technical Specifications:
+- Logarithmic Returns (`calculate_log_returns`): 
+  - Equation: $r_t = \ln(P_t / P_{t-1})$. 
+  - Defensively catches negative nominal prices and replaces the 0th index `NaN` with `0.0`.
+- GARCH(1,1) Volatility Modeling (`forecast_volatility`):
+  - Employs the `arch` library to solve conditional heteroskedasticity.
+  - Model: $\sigma_t^2 = \omega + \alpha \epsilon_{t-1}^2 + \beta \sigma_{t-1}^2$.
+  - Optimization constraints: Multiplies returns by 100.0 to stabilize C-compiler 
+    parameter solvers, then divides variance outputs by 10000.0.
+  - Fallback: Implements a `try-except` net to fall back to a 21-day rolling historical 
+    standard deviation if parameter convergence fails on flat datasets.
+- Monte Carlo Engine (`generate_monte_carlo_envelope`):
+  - Simulates Geometric Brownian Motion trajectories across `num_simulations=1000` matrices.
+  - Computes the drift constraint using the ML expected returns vector $\mu$, and 
+    diffusion from the GARCH vector $\sigma$.
+  - Equation: $S_{t+1} = S_t \exp((\mu_{t+1} - 0.5\sigma_{t+1}^2) + \sigma_{t+1} Z)$, 
+    where $Z \sim \mathcal{N}(0,1)$.
+  - Isolates and returns the exact 5th (Lower Bound) and 95th (Upper Bound) 
+    percentiles across all simulated trajectory paths at each time $t$.
+
+D. MACHINE LEARNING & PREDICTIVE CORE (`backend/ML_models.py`)
+--------------------------------------------------------------------------------
+Functionality: 
+Trains pattern recognition models on historical data and recursively projects future 
+returns out to the requested `horizon`.
+
+Technical Specifications:
+- Sliding Window Matrix: Segments the sequential data into overlapping arrays of length 
+  $N$ to predict step $N+1$, maintaining strict chronological ordering to prevent 
+  look-ahead data leakage.
+- Scaling: Fits `MinMaxScaler` only to the training split, retaining the scaler instance 
+  in memory for inverse transformation loops.
+- LSTM Architecture (TensorFlow): Multi-layer architecture containing dense layers, 
+  recurrent gates, and dropout layers (e.g., 0.2) to prevent neural network overfitting 
+  to market noise.
+- Random Forest Baseline (scikit-learn): Provides an ensemble of decision trees to 
+  reduce variance and serve as a baseline comparison against the deep learning model.
+- Recursive Forecasting: Iteratively feeds $t_{target}$ predictions back into the sliding 
+  window to predict $t_{target+1}$ through a localized autoregressive sequence.
+
+E. UNIT TESTING & VERIFICATION (`tests/test_math.py`)
+--------------------------------------------------------------------------------
+Functionality: 
+A deterministic Python `unittest` suite that mathematically verifies the integrity 
+of the quantitative logic without network calls.
+
+Technical Specifications:
+- Validates index zero preservation and 5-decimal place accuracy in the log returns.
+- Programmatically rebuilds the VWDV formula against deterministic dictionary inputs 
+  to verify that engagement coefficients and lambda decays compute perfectly.
+- Stresses the GARCH solver by passing zero-variance flat arrays to ensure the system 
+  smoothly executes the rolling deviation fallback.
+- Mathematically validates the Monte Carlo envelope structure, testing matrix shape limits 
+  and enforcing $Lower < Median < Upper$ logic at every horizontal index.
+
+F. FRONTEND ARCHITECTURE (`frontend/`)
+--------------------------------------------------------------------------------
+Functionality: 
+A decoupled Single-Page Application (SPA) utilizing vanilla JavaScript and Chart.js, 
+styled comprehensively with Tailwind CSS.
+
+Technical Specifications:
+- Network Lifecycle (`app.js`): Uses modern ES6 `fetch` patterns with asynchronous `await` 
+  wrappers to hit the FastAPI endpoints. Handles HTTP 500 errors by gracefully stripping 
+  loading classes and appending human-readable error banners to the DOM.
+- Dynamic Metrics Engine: Computes real-time data transformations without backend overhead:
+  - Extracts local extrema `Math.max()` and `Math.min()` from historical spot paths.
+  - Computes Expected ROI percentages natively: `(Target - Current) / Current`.
+  - DOM manipulation dynamically injects CSS classes (`text-green-400` vs `text-rose-400`) 
+    depending on negative/positive integer thresholds.
+- Statistical Fan Chart rendering:
+  - Destroys existing `chartInstance` on new queries to completely eradicate WebGL memory 
+    leak artifacts.
+  - Z-Index layering arrays chronological sequences, padding future lines with `null` 
+    to map correctly to the horizontal axes limits.
+  - Uses `fill: '-1'` options in Chart.js coupled with `rgba(239, 68, 68, 0.05)` 
+    polygons to draw the probabilistic 95% Monte Carlo cone overlay.
+
+================================================================================
+3. DEPLOYMENT & ENVIRONMENT OPERATIONS
+================================================================================
+- Environment Masking: Uses standard Python virtual environments (`venv`) injected into 
+  local IDE paths to isolate library installations (preventing globally installed package conflicts).
+- Dependency Graph (`requirements.txt`): Strictly locks all mathematical and systemic libraries 
+  to designated safe versions (e.g., `arch>=6.1.0`, `fastapi>=0.110.0`, `tensorflow>=2.13.0`).
+- Cross-Directory Module Injection: Implements internal `sys.path.append(os.path.dirname(os.path.abspath(__file__)))` 
+  in `main.py` to defeat `ModuleNotFoundError` conflicts related to decoupled sub-directory executions.
+
+================================================================================
+4. LEGAL & SYSTEMIC RISK DISCLAIMER
+================================================================================
+- NOT FINANCIAL ADVICE: This platform is designed strictly for research, engineering 
+  demonstration, and mathematical exploration.
+- STOCHASTIC LIMITATIONS: The ML architectures, while heavily documented, rely entirely 
+  on the efficient market hypothesis and historical proxy data. They do not model 
+  exogenous macroeconomic shocks, fundamental corporate events, or black swan systemic 
+  collapses.
+- NO LIABILITY: The developers, contributors, and the algorithms operating this software 
+  accept ZERO liability for any capital losses incurred by users attempting to execute 
+  live trades off the derived data pathways.
+================================================================================
+END OF DOCUMENTATION
+================================================================================

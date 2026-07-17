@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantitative Trading Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-wrap">
+
+        <!-- Header -->
+        <header class="site-header">
+            <div class="eyebrow">01 — Analysis Suite</div>
+            <div class="header-body">
+                <div class="header-left">
+                    <h1 class="site-title">Quantitative<br>Price Predictor.</h1>
+                    <p class="site-desc">Enter a ticker and company to run LSTM and Random Forest models against 90-day price horizons. All computation runs server-side.</p>
+                </div>
+                <form id="predictionForm" class="control-form">
+                    <div class="field-group">
+                        <div class="field">
+                            <label for="ticker">Ticker Symbol</label>
+                            <input type="text" id="ticker" name="ticker" placeholder="AAPL" required autocomplete="off">
+                        </div>
+                        <div class="field">
+                            <label for="companyName">Company Name</label>
+                            <input type="text" id="companyName" name="companyName" placeholder="Apple Inc." required autocomplete="off">
+                        </div>
+                    </div>
+                    <button type="submit" id="submitBtn">Run Analysis →</button>
+                </form>
+            </div>
+        </header>
+
+        <!-- Loading -->
+        <div id="loadingContainer" class="loading-state hidden">
+            <div class="loader"></div>
+            <p class="loading-text">Running quantitative models &amp; simulations</p>
+        </div>
+
+        <!-- Error -->
+        <div id="errorContainer" class="error-banner hidden" role="alert">
+            <span class="error-label">Error</span>
+            <span id="errorMessage">Something went wrong.</span>
+        </div>
+
+        <!-- Dashboard -->
+        <main id="dashboardContent" class="dashboard hidden">
+
+            <!-- Metrics -->
+            <section class="metrics-section">
+                <div class="eyebrow">02 — Key Metrics</div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Current Close</div>
+                        <div class="metric-value" id="metricClose">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">LSTM Target</div>
+                        <div class="metric-value accent-gold" id="metricLstm">--</div>
+                        <div class="metric-sub" id="metricLstmRoi">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">RF Target</div>
+                        <div class="metric-value accent-brown" id="metricRf">--</div>
+                        <div class="metric-sub" id="metricRfRoi">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">95% Vol. Range</div>
+                        <div class="metric-value metric-value--sm" id="metricVolatility">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Historical High</div>
+                        <div class="metric-value accent-pos" id="metricHigh">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Historical Low</div>
+                        <div class="metric-value accent-neg" id="metricLow">--</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chart -->
+            <section class="chart-section">
+                <div class="eyebrow">03 — Price Forecast</div>
+                <div class="chart-card">
+                    <div class="chart-wrapper">
+                        <canvas id="predictionChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="site-footer">
+            <span>Quantitative Trading Dashboard</span>
+            <span>All models run server-side. Not financial advice.</span>
+        </footer>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
