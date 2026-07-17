@@ -6,6 +6,6 @@ numpy>=1.24.3
 pandas>=2.0.3
 arch>=6.1.0
 scikit-learn>=1.2.2
-tensorflow>=2.13.0
+tensorflow-cpu>=2.13.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0

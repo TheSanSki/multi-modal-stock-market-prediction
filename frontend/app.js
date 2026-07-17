@@ -36,8 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
         try {
+            // Dynamic API Root Gateway Isolation
+            const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+              ? 'http://127.0.0.1:8000'
+              : window.location.origin;
+
             // Network API Request Handler
-            const response = await fetch('http://127.0.0.1:8000/api/predict', {
+            const response = await fetch(`${API_BASE_URL}/api/predict`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

@@ -77,7 +77,7 @@ def predict_stock_endpoint(request: PredictionRequest):
         if df.empty or 'Close' not in df.columns:
             raise ValueError("Data ingestion failed. Empty dataframe returned.")
             
-        historical_dates = df.index.strftime('%Y-%m-%d').tolist()
+        historical_dates = pd.to_datetime(df.index).strftime('%Y-%m-%d').tolist()
         historical_prices = df['Close'].tolist()
         last_price = historical_prices[-1]
         
