@@ -55,9 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                const detail = errorData?.detail || `Server error: ${response.status} ${response.statusText}`;
-                throw new Error(detail);
+                const errorText = await response.text();
+                console.error("Server Execution Error Traceout Context:", errorText);
+                throw new Error(`Server returned error status payload code: ${response.status}`);
             }
 
             const data = await response.json();
