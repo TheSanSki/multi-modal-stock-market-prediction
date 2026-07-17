@@ -1,0 +1,12 @@
+yfinance>=0.2.38
+feedparser>=6.0.11
+pydantic>=2.7.0
+nltk>=3.8.1
+numpy>=1.24.3
+pandas>=2.0.3
+arch>=6.1.0
+scikit-learn>=1.2.2
+tensorflow>=2.13.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pytz>=2024.1
