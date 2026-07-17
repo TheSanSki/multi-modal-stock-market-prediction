@@ -2,9 +2,13 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/main.py",
+      "src": "api/index.py",
       "use": "@vercel/python",
-      "config": { "entrypoint": "backend.main:app" }
+      "config": {
+        "includeFiles": [
+          "backend/**"
+        ]
+      }
     },
     {
       "src": "frontend/**",
@@ -14,7 +18,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/main.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/(.*)",
