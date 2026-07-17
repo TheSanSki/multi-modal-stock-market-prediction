@@ -10,17 +10,17 @@ from datetime import timedelta
 import pandas as pd
 import numpy as np
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Internal Module Integration
-from data_pipeline import build_integrated_pipeline
-from quantitative import calculate_log_returns, forecast_volatility, generate_monte_carlo_envelope
+from backend.data_pipeline import build_integrated_pipeline
+from backend.quantitative import calculate_log_returns, forecast_volatility, generate_monte_carlo_envelope
 
 # Attempt to import ML_models components, fallback to mock if not yet implemented
 try:
-    from ML_models import (
+    from backend.ML_models import (
         prepare_sliding_windows,
         train_lstm_configuration,
         train_random_forest_baseline,
@@ -77,7 +77,7 @@ def predict_stock_endpoint(request: PredictionRequest):
         if df.empty or 'Close' not in df.columns:
             raise ValueError("Data ingestion failed. Empty dataframe returned.")
             
-        historical_dates = pd.to_datetime(df.index).strftime('%Y-%m-%d').tolist()
+        historical_dates = [d.strftime('%Y-%m-%d') for d in pd.to_datetime(df.index)]
         historical_prices = df['Close'].tolist()
         last_price = historical_prices[-1]
         
